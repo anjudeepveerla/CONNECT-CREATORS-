@@ -878,30 +878,30 @@ export default function PricingCalculatorPage() {
             </DialogHeader>
             <div className="grid grid-cols-1 gap-4 mt-6">
               <Card className="bg-neutral-800 border-neutral-700 p-4 rounded-lg">
-                <CardTitle className="text-xl font-bold text-orange-500 mb-2">$9 – One-Time Access</CardTitle>
+                <CardTitle className="text-xl font-bold text-orange-500 mb-2">₹19 – One-Time Access</CardTitle>
                 <p className="text-sm text-neutral-300 mb-4">Get insights for this report only. No re-access later.</p>
                 <Button
-                  onClick={() => handlePayment(9)}
+                  onClick={() => handlePayment(19)}
                   disabled={paymentProcessing}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
                 >
-                  {paymentProcessing ? "Processing..." : "Pay $9 and Get Report"}
+                  {paymentProcessing ? "Processing..." : "Pay ₹19 and Get Report"}
                 </Button>
               </Card>
               <Card className="bg-neutral-800 border-neutral-700 p-4 rounded-lg">
-                <CardTitle className="text-xl font-bold text-orange-500 mb-2">$299 – Lifetime Access</CardTitle>
+                <CardTitle className="text-xl font-bold text-orange-500 mb-2">₹299 – Lifetime Access</CardTitle>
                 <p className="text-sm text-neutral-300 mb-4">Unlimited access to all future pricing reports forever.</p>
                 <Button
                   onClick={() => handlePayment(299)}
                   disabled={paymentProcessing}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
                 >
-                  {paymentProcessing ? "Processing..." : "Pay $299 and Unlock Forever"}
+                  {paymentProcessing ? "Processing..." : "Pay ₹299 and Unlock Forever"}
                 </Button>
               </Card>
             </div>
             <p className="text-xs text-neutral-500 text-center mt-6">
-              _This is a demo experience. Payments are simulated._
+              _This is a demo experience. Payments are simulated. Amounts shown in Indian Rupees (₹)._
             </p>
           </DialogContent>
         </Dialog>

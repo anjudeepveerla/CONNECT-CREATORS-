@@ -400,17 +400,8 @@ export function InfluencerWorthDashboard({ results }) {
   }
 
   const getCurrencySymbol = () => {
-    switch (results.country?.toLowerCase()) {
-      case "usa":
-      case "canada":
-      case "australia":
-        return "$"
-      case "uk":
-        return "£"
-      case "india":
-      default:
-        return "₹"
-    }
+    // Always return dollar symbol as requested
+    return "$"
   }
 
   return (
