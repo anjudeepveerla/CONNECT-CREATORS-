@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -490,6 +491,25 @@ export default function HomePage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Quick Footer Links */}
+      <div className="border-t border-neutral-800 mt-16 pt-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-neutral-500">
+              © 2025 VEERLA ANJUDEEP. All rights reserved.
+            </div>
+            <div className="flex items-center gap-6">
+              <Link href="/contact" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors">
+                Contact Us
+              </Link>
+              <Link href="/terms" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors">
+                Terms & Conditions
+              </Link>
             </div>
           </div>
         </div>

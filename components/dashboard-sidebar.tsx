@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, DollarSign, Users, BarChart, Settings, LogOut, Calculator, TrendingUp } from "lucide-react"
+import { LayoutDashboard, DollarSign, Users, BarChart, Settings, LogOut, Calculator, TrendingUp, Mail, FileText } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -96,6 +96,26 @@ export function DashboardSidebar() {
             <SidebarMenuButton onClick={handleLogout}>
               <LogOut className="w-5 h-5" />
               <span>LOGOUT</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        
+        {/* Legal & Contact Links */}
+        <SidebarMenu className="mt-2">
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <Link href="/contact">
+                <Mail className="w-5 h-5" />
+                <span>CONTACT US</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <Link href="/terms">
+                <FileText className="w-5 h-5" />
+                <span>TERMS</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
