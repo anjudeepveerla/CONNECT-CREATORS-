@@ -318,8 +318,11 @@ export default function PricingCalculatorPage() {
     return contentMultipliers.reel
   }
 
+  // Use INR for all displayed currency values
+  const USD_TO_INR = 83
+
   const formatCurrencyValue = (value: number) => {
-    return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const calculatePricing = async () => {
@@ -398,6 +401,8 @@ export default function PricingCalculatorPage() {
       nicheMultiplier *
       regionalMultiplier
 
+    const suggestedPriceINR = suggestedPriceUSD * USD_TO_INR
+
     let confidenceScore = 70
     if (
       formData.followers &&
@@ -415,24 +420,24 @@ export default function PricingCalculatorPage() {
 
     const marketBenchmarks = {
       "similar creators": {
-        min: suggestedPriceUSD * 0.8,
-        avg: suggestedPriceUSD * 1.0,
-        max: suggestedPriceUSD * 1.2,
+        min: suggestedPriceINR * 0.8,
+        avg: suggestedPriceINR * 1.0,
+        max: suggestedPriceINR * 1.2,
       },
       "niche average": {
-        min: suggestedPriceUSD * 0.7,
-        avg: suggestedPriceUSD * 0.9,
-        max: suggestedPriceUSD * 1.1,
+        min: suggestedPriceINR * 0.7,
+        avg: suggestedPriceINR * 0.9,
+        max: suggestedPriceINR * 1.1,
       },
     }
 
     const smartTips = []
     if (engagement < 3) smartTips.push("Focus on improving engagement rate for higher pricing.")
-    if (suggestedPriceUSD < 50)
+    if (suggestedPriceINR < 4000)
       smartTips.push("Explore bundling multiple content types for a better value proposition.")
-    if (suggestedPriceUSD > 1000 && formData.userType === "creator")
+    if (suggestedPriceINR > 80000 && formData.userType === "creator")
       smartTips.push("Highlight unique value propositions to justify premium pricing.")
-    if (suggestedPriceUSD > 1000 && formData.userType === "brand")
+    if (suggestedPriceINR > 80000 && formData.userType === "brand")
       smartTips.push("Negotiate usage rights carefully to optimize budget.")
     if (smartTips.length === 0)
       smartTips.push("Your current profile and inputs suggest optimal pricing. Keep up the great work!")
@@ -441,10 +446,10 @@ export default function PricingCalculatorPage() {
     const growthPotential = followers > 500000 ? "Very High" : followers > 100000 ? "High" : "Medium"
 
     const lineChartData = [
-      { name: "Post", userValue: suggestedPriceUSD * 0.7, industryAverage: suggestedPriceUSD * 0.6 },
-      { name: "Story", userValue: suggestedPriceUSD * 0.4, industryAverage: suggestedPriceUSD * 0.35 },
-      { name: "Reel", userValue: suggestedPriceUSD * 1.0, industryAverage: suggestedPriceUSD * 0.9 },
-      { name: "Bundle", userValue: suggestedPriceUSD * 2.0, industryAverage: suggestedPriceUSD * 1.8 },
+      { name: "Post", userValue: suggestedPriceINR * 0.7, industryAverage: suggestedPriceINR * 0.6 },
+      { name: "Story", userValue: suggestedPriceINR * 0.4, industryAverage: suggestedPriceINR * 0.35 },
+      { name: "Reel", userValue: suggestedPriceINR * 1.0, industryAverage: suggestedPriceINR * 0.9 },
+      { name: "Bundle", userValue: suggestedPriceINR * 2.0, industryAverage: suggestedPriceINR * 1.8 },
     ]
 
     const radarChartData = {
@@ -455,11 +460,14 @@ export default function PricingCalculatorPage() {
       nicheValue: (nicheMultipliers[formData.niche?.toLowerCase()] || 1.0) * 50,
     }
 
+    const baseRateINR = (baselinePriceUSD * followerScalingFactor) * USD_TO_INR
+    const engagementBonusINR = (baselinePriceUSD * followerScalingFactor * (engagementFactor - 1)) * USD_TO_INR
+
     return {
-      suggestedPrice: suggestedPriceUSD,
+      suggestedPrice: suggestedPriceINR,
       priceBreakdown: {
-        baseRate: baselinePriceUSD * followerScalingFactor,
-        engagementBonus: baselinePriceUSD * followerScalingFactor * (engagementFactor - 1),
+        baseRate: baseRateINR,
+        engagementBonus: engagementBonusINR,
         nicheDemandMultiplier: nicheMultiplier,
         locationModifier: regionalMultiplier,
       },
@@ -692,7 +700,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
-                    SUGGESTED OPTIMAL PRICE
+                    SUGGESTED OPTIMAL PRICE (INR)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-center p-6">
@@ -714,7 +722,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <BarChart3 className="w-4 h-4" />
-                    PRICE BREAKDOWN
+                    PRICE BREAKDOWN (INR)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-6">
@@ -746,7 +754,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
-                    MARKET BENCHMARKS
+                    MARKET BENCHMARKS (INR)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-6">
@@ -901,7 +909,7 @@ export default function PricingCalculatorPage() {
               </Card>
             </div>
             <p className="text-xs text-neutral-500 text-center mt-6">
-              _This is a demo experience. Payments are simulated. Amounts shown in Indian Rupees (₹)._
+              _This is a demo experience. Payments are simulated. Amounts shown in Indian Rupees (₹)._ 
             </p>
           </DialogContent>
         </Dialog>

@@ -33,7 +33,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/pricing-calculator" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors">
-                  Pricing Calculator
+                  Pricing Calculator (INR)
                 </Link>
               </li>
               <li>
@@ -63,6 +63,18 @@ export function Footer() {
                 <Link href="/terms" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors flex items-center gap-2">
                   <FileText className="w-3 h-3" />
                   Terms & Conditions
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy-policy" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors flex items-center gap-2">
+                  <FileText className="w-3 h-3" />
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/refund-cancellation" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors flex items-center gap-2">
+                  <FileText className="w-3 h-3" />
+                  Refund & Cancellation
                 </Link>
               </li>
             </ul>
