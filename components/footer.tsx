@@ -33,7 +33,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/pricing-calculator" className="text-sm text-neutral-400 hover:text-orange-500 transition-colors">
-                  Pricing Calculator (INR)
+                  Pricing Calculator
                 </Link>
               </li>
               <li>

@@ -170,7 +170,7 @@ export default function LoginPage() {
     },
     {
       label: "Revenue Generated",
-      value: "₹45.2M",
+      value: "$45.2M",
       icon: DollarSign,
       suffix: "+",
     },

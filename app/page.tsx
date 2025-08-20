@@ -183,7 +183,7 @@ export default function HomePage() {
     },
     {
       label: "Revenue Generated",
-      value: `₹${animatedStats.revenue.toFixed(1)}M`,
+      value: `$${animatedStats.revenue.toFixed(1)}M`,
       icon: DollarSign,
       suffix: "+",
     },

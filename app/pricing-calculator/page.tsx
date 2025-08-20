@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function PricingCalculatorPage() {
+  const { user } = useAuth()
+  const userKey = user?.id || "guest"
   const [formData, setFormData] = useState({
     userType: "",
     platform: "",
@@ -58,6 +61,32 @@ export default function PricingCalculatorPage() {
 
   // Store form data temporarily for calculation after payment
   const [pendingCalculation, setPendingCalculation] = useState(false)
+
+  // Access control state
+  const [hasUsedFreeCredit, setHasUsedFreeCredit] = useState<boolean>(false)
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false)
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<string | null>(null)
+
+  // Load access control state from localStorage
+  useEffect(() => {
+    try {
+      const freeUsed = localStorage.getItem(`pricing.freeUsed:${userKey}`)
+      const subscribed = localStorage.getItem(`pricing.subscribed:${userKey}`)
+      const expiresAt = localStorage.getItem(`pricing.subscriptionExpiresAt:${userKey}`)
+
+      setHasUsedFreeCredit(freeUsed === "true")
+      const subscribedBool = subscribed === "true"
+      let active = subscribedBool
+      if (subscribedBool && expiresAt) {
+        const expiryMs = Date.parse(expiresAt)
+        if (!Number.isNaN(expiryMs)) {
+          active = Date.now() < expiryMs
+        }
+      }
+      setIsSubscribed(active)
+      setSubscriptionExpiresAt(expiresAt)
+    } catch {}
+  }, [userKey])
 
   const contentMultipliers = {
     reel: 1.0,
@@ -183,6 +212,12 @@ export default function PricingCalculatorPage() {
     cars: 1.1,
     books: 0.85,
     art: 0.9,
+  }
+
+  const getNicheMultiplierSafe = (niche: string | undefined): number => {
+    if (!niche) return 1.0
+    const key = niche.toLowerCase() as keyof typeof nicheMultipliers
+    return nicheMultipliers[key] ?? 1.0
   }
 
   const countries = [
@@ -318,11 +353,9 @@ export default function PricingCalculatorPage() {
     return contentMultipliers.reel
   }
 
-  // Use INR for all displayed currency values
-  const USD_TO_INR = 83
-
+  // Use USD for all displayed currency values
   const formatCurrencyValue = (value: number) => {
-    return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const calculatePricing = async () => {
@@ -333,10 +366,20 @@ export default function PricingCalculatorPage() {
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // SECURITY: Don't calculate or store any pricing results yet
-    // Just show the payment modal - pricing will be calculated after payment verification
+    // Decide access path: free credit, active subscription, or require subscription
     setLoading(false)
     setPendingCalculation(true)
+    if (!hasUsedFreeCredit) {
+      // Offer modal to choose free or subscribe (keeps flow the same)
+      setIsModalOpen(true)
+      return
+    }
+    if (isSubscribed) {
+      // Proceed directly under subscription
+      await handleSubscribedGeneration()
+      return
+    }
+    // Require subscription
     setIsModalOpen(true)
   }
 
@@ -344,39 +387,78 @@ export default function PricingCalculatorPage() {
     setIsModalOpen(true)
   }
 
-  const handlePayment = async (amount: number) => {
+  // Use free credit once
+  const handleUseFree = async () => {
+    if (hasUsedFreeCredit) return
     setPaymentProcessing(true)
-    
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    
-    // Generate a unique payment session ID
-    const sessionId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    const sessionId = `free_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     setPaymentSessionId(sessionId)
     setPaymentVerified(true)
     setPaymentProcessing(false)
 
-    // Close payment modal and start generating report
+    // Persist free credit usage
+    try {
+      localStorage.setItem(`pricing.freeUsed:${userKey}`, "true")
+    } catch {}
+    setHasUsedFreeCredit(true)
+
+    // Generate report
     setIsModalOpen(false)
     setIsGeneratingReport(true)
-
-    // Simulate report generation time
-    await new Promise((resolve) => setTimeout(resolve, 2500))
-
-    // Now calculate the actual pricing results after payment verification
+    await new Promise((resolve) => setTimeout(resolve, 2000))
     const results = await calculatePricingResults(formData, sessionId)
-    
     setIsGeneratingReport(false)
     setIsReportUnlocked(true)
-    
-    // Store results only after payment verification
+    setResults(results)
+  }
+
+  // Subscribe for $3/year
+  const handleSubscribe = async () => {
+    setPaymentProcessing(true)
+    // Simulate payment processing
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    const sessionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setPaymentSessionId(sessionId)
+    setPaymentVerified(true)
+    setPaymentProcessing(false)
+
+    // Persist subscription for 1 year
+    const expires = new Date()
+    expires.setFullYear(expires.getFullYear() + 1)
+    try {
+      localStorage.setItem(`pricing.subscribed:${userKey}`, "true")
+      localStorage.setItem(`pricing.subscriptionExpiresAt:${userKey}`, expires.toISOString())
+    } catch {}
+    setIsSubscribed(true)
+    setSubscriptionExpiresAt(expires.toISOString())
+
+    // Generate report
+    setIsModalOpen(false)
+    setIsGeneratingReport(true)
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const results = await calculatePricingResults(formData, sessionId)
+    setIsGeneratingReport(false)
+    setIsReportUnlocked(true)
+    setResults(results)
+  }
+
+  const handleSubscribedGeneration = async () => {
+    const sessionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setPaymentSessionId(sessionId)
+    setPaymentVerified(true)
+    setIsGeneratingReport(true)
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const results = await calculatePricingResults(formData, sessionId)
+    setIsGeneratingReport(false)
+    setIsReportUnlocked(true)
     setResults(results)
   }
 
   // SECURE: Calculate pricing results only after payment verification
   const calculatePricingResults = async (formData: any, sessionId: string) => {
     // Verify payment session is valid
-    if (!sessionId || !sessionId.startsWith('pay_')) {
+    if (!sessionId || !(sessionId.startsWith('pay_') || sessionId.startsWith('free_') || sessionId.startsWith('sub_'))) {
       throw new Error('Invalid payment session')
     }
 
@@ -390,7 +472,7 @@ export default function PricingCalculatorPage() {
     const followerScalingFactor = followers / baselineFollowers
     const engagementFactor = getEngagementFactor(engagement)
     const contentMultiplier = getContentMultiplier(formData.contentType)
-    const nicheMultiplier = nicheMultipliers[formData.niche?.toLowerCase()] || 1.0
+    const nicheMultiplier = getNicheMultiplierSafe(formData.niche)
     const regionalMultiplier = getRegionalMultiplier(formData.country)
 
     const suggestedPriceUSD =
@@ -400,8 +482,6 @@ export default function PricingCalculatorPage() {
       contentMultiplier *
       nicheMultiplier *
       regionalMultiplier
-
-    const suggestedPriceINR = suggestedPriceUSD * USD_TO_INR
 
     let confidenceScore = 70
     if (
@@ -420,24 +500,24 @@ export default function PricingCalculatorPage() {
 
     const marketBenchmarks = {
       "similar creators": {
-        min: suggestedPriceINR * 0.8,
-        avg: suggestedPriceINR * 1.0,
-        max: suggestedPriceINR * 1.2,
+        min: suggestedPriceUSD * 0.8,
+        avg: suggestedPriceUSD * 1.0,
+        max: suggestedPriceUSD * 1.2,
       },
       "niche average": {
-        min: suggestedPriceINR * 0.7,
-        avg: suggestedPriceINR * 0.9,
-        max: suggestedPriceINR * 1.1,
+        min: suggestedPriceUSD * 0.7,
+        avg: suggestedPriceUSD * 0.9,
+        max: suggestedPriceUSD * 1.1,
       },
     }
 
     const smartTips = []
     if (engagement < 3) smartTips.push("Focus on improving engagement rate for higher pricing.")
-    if (suggestedPriceINR < 4000)
+    if (suggestedPriceUSD < 50)
       smartTips.push("Explore bundling multiple content types for a better value proposition.")
-    if (suggestedPriceINR > 80000 && formData.userType === "creator")
+    if (suggestedPriceUSD > 1000 && formData.userType === "creator")
       smartTips.push("Highlight unique value propositions to justify premium pricing.")
-    if (suggestedPriceINR > 80000 && formData.userType === "brand")
+    if (suggestedPriceUSD > 1000 && formData.userType === "brand")
       smartTips.push("Negotiate usage rights carefully to optimize budget.")
     if (smartTips.length === 0)
       smartTips.push("Your current profile and inputs suggest optimal pricing. Keep up the great work!")
@@ -446,10 +526,10 @@ export default function PricingCalculatorPage() {
     const growthPotential = followers > 500000 ? "Very High" : followers > 100000 ? "High" : "Medium"
 
     const lineChartData = [
-      { name: "Post", userValue: suggestedPriceINR * 0.7, industryAverage: suggestedPriceINR * 0.6 },
-      { name: "Story", userValue: suggestedPriceINR * 0.4, industryAverage: suggestedPriceINR * 0.35 },
-      { name: "Reel", userValue: suggestedPriceINR * 1.0, industryAverage: suggestedPriceINR * 0.9 },
-      { name: "Bundle", userValue: suggestedPriceINR * 2.0, industryAverage: suggestedPriceINR * 1.8 },
+      { name: "Post", userValue: suggestedPriceUSD * 0.7, industryAverage: suggestedPriceUSD * 0.6 },
+      { name: "Story", userValue: suggestedPriceUSD * 0.4, industryAverage: suggestedPriceUSD * 0.35 },
+      { name: "Reel", userValue: suggestedPriceUSD * 1.0, industryAverage: suggestedPriceUSD * 0.9 },
+      { name: "Bundle", userValue: suggestedPriceUSD * 2.0, industryAverage: suggestedPriceUSD * 1.8 },
     ]
 
     const radarChartData = {
@@ -457,17 +537,17 @@ export default function PricingCalculatorPage() {
       engagement: Math.min(100, engagement * 10),
       consistency: 75,
       growth: 80,
-      nicheValue: (nicheMultipliers[formData.niche?.toLowerCase()] || 1.0) * 50,
+      nicheValue: getNicheMultiplierSafe(formData.niche) * 50,
     }
 
-    const baseRateINR = (baselinePriceUSD * followerScalingFactor) * USD_TO_INR
-    const engagementBonusINR = (baselinePriceUSD * followerScalingFactor * (engagementFactor - 1)) * USD_TO_INR
+    const baseRateUSD = (baselinePriceUSD * followerScalingFactor)
+    const engagementBonusUSD = (baselinePriceUSD * followerScalingFactor * (engagementFactor - 1))
 
     return {
-      suggestedPrice: suggestedPriceINR,
+      suggestedPrice: suggestedPriceUSD,
       priceBreakdown: {
-        baseRate: baseRateINR,
-        engagementBonus: engagementBonusINR,
+        baseRate: baseRateUSD,
+        engagementBonus: engagementBonusUSD,
         nicheDemandMultiplier: nicheMultiplier,
         locationModifier: regionalMultiplier,
       },
@@ -661,7 +741,9 @@ export default function PricingCalculatorPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {formData.platform &&
-                      Object.keys(platformContentTypes[formData.platform.toLowerCase()] || {}).map((type) => (
+                      Object.keys(
+                        platformContentTypes[(formData.platform.toLowerCase() as keyof typeof platformContentTypes) || "other"] || {}
+                      ).map((type) => (
                         <SelectItem key={type} value={type}>
                           {type
                             .split("-")
@@ -700,7 +782,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
-                    SUGGESTED OPTIMAL PRICE (INR)
+                    SUGGESTED OPTIMAL PRICE (USD)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-center p-6">
@@ -722,7 +804,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <BarChart3 className="w-4 h-4" />
-                    PRICE BREAKDOWN (INR)
+                    PRICE BREAKDOWN (USD)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-6">
@@ -754,7 +836,7 @@ export default function PricingCalculatorPage() {
                 <CardHeader>
                   <CardTitle className="text-sm font-medium text-neutral-300 tracking-wider flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
-                    MARKET BENCHMARKS (INR)
+                    MARKET BENCHMARKS (USD)
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-6">
@@ -886,31 +968,29 @@ export default function PricingCalculatorPage() {
             </DialogHeader>
             <div className="grid grid-cols-1 gap-4 mt-6">
               <Card className="bg-neutral-800 border-neutral-700 p-4 rounded-lg">
-                <CardTitle className="text-xl font-bold text-orange-500 mb-2">₹19 – One-Time Access</CardTitle>
-                <p className="text-sm text-neutral-300 mb-4">Get insights for this report only. No re-access later.</p>
+                <CardTitle className="text-xl font-bold text-orange-500 mb-2">Free — One-Time Access</CardTitle>
+                <p className="text-sm text-neutral-300 mb-4">Use your free credit to generate this pricing report.</p>
                 <Button
-                  onClick={() => handlePayment(19)}
-                  disabled={paymentProcessing}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                  onClick={handleUseFree}
+                  disabled={paymentProcessing || hasUsedFreeCredit}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold disabled:opacity-60"
                 >
-                  {paymentProcessing ? "Processing..." : "Pay ₹19 and Get Report"}
+                  {hasUsedFreeCredit ? "Free credit used" : paymentProcessing ? "Processing..." : "Use Free Credit"}
                 </Button>
               </Card>
               <Card className="bg-neutral-800 border-neutral-700 p-4 rounded-lg">
-                <CardTitle className="text-xl font-bold text-orange-500 mb-2">₹299 – Lifetime Access</CardTitle>
-                <p className="text-sm text-neutral-300 mb-4">Unlimited access to all future pricing reports forever.</p>
+                <CardTitle className="text-xl font-bold text-orange-500 mb-2">$3/year — Unlimited Access</CardTitle>
+                <p className="text-sm text-neutral-300 mb-4">Subscribe to generate unlimited pricing reports for a year.</p>
                 <Button
-                  onClick={() => handlePayment(299)}
-                  disabled={paymentProcessing}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                  onClick={handleSubscribe}
+                  disabled={paymentProcessing || isSubscribed}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold disabled:opacity-60"
                 >
-                  {paymentProcessing ? "Processing..." : "Pay ₹299 and Unlock Forever"}
+                  {isSubscribed ? (subscriptionExpiresAt ? `Subscribed · Active` : "Subscribed") : paymentProcessing ? "Processing..." : "Subscribe for $3/year"}
                 </Button>
               </Card>
             </div>
-            <p className="text-xs text-neutral-500 text-center mt-6">
-              _This is a demo experience. Payments are simulated. Amounts shown in Indian Rupees (₹)._ 
-            </p>
+            {/* No currency disclaimer needed; USD-only */}
           </DialogContent>
         </Dialog>
       </div>
