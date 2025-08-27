@@ -4,6 +4,7 @@ import { Geist_Mono as GeistMono } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { Footer } from "@/components/footer"
+import { Toaster } from "sonner"
 
 const geistMono = GeistMono({ subsets: ["latin"] })
 
@@ -24,6 +25,18 @@ export default function RootLayout({
         <AuthProvider>
           <div className="flex-1 w-full">{children}</div>
           <Footer />
+          <Toaster 
+            position="top-right" 
+            richColors 
+            theme="dark"
+            toastOptions={{
+              style: {
+                background: '#171717',
+                border: '1px solid #404040',
+                color: '#ffffff',
+              },
+            }}
+          />
         </AuthProvider>
       </body>
     </html>
