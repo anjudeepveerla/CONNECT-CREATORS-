@@ -144,8 +144,9 @@ export default function LoginPage() {
         })
         
         toast.success("Google Sign-in successful!")
-        // Redirect to homepage instead of dashboard
-        router.push("/")
+        
+        // Immediate redirect to dashboard
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Google Sign-in error:", error)

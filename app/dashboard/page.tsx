@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Calculator, Bell, RefreshCw, BarChart, Menu, TrendingUp, LogOut } from "lucide-react"
+import { Calculator, Bell, RefreshCw, BarChart, Menu, TrendingUp, LogOut, User, ChevronDown, ArrowLeft, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import PricingCalculatorPage from "../pricing-calculator/page"
 import EngagementCalculatorPage from "../engagement-calculator/page"
@@ -20,11 +20,16 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/lib/auth-context"
+import { onAuthStateChanged, signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { toast } from "sonner"
 
 export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("calculator")
+  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null)
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const router = useRouter()
-  const { user, signOut, loading } = useAuth()
+  const { user, signOut: supabaseSignOut, loading } = useAuth()
   const [systemStats, setSystemStats] = useState({
     calculations: 1247,
     creators: 892,
@@ -32,9 +37,26 @@ export default function Dashboard() {
   })
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login")
-    }
+    // Check for Firebase auth first, then Supabase auth
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setAuthenticatedUser({
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          photoURL: firebaseUser.photoURL,
+          uid: firebaseUser.uid,
+          provider: 'firebase'
+        })
+      } else {
+        setAuthenticatedUser(null)
+        // If no Firebase user and no Supabase user, redirect to login
+        if (!loading && !user) {
+          router.push("/login")
+        }
+      }
+    })
+
+    return () => unsubscribe()
   }, [user, loading, router])
 
   useEffect(() => {
@@ -50,9 +72,36 @@ export default function Dashboard() {
   }, [])
 
   const handleLogout = async () => {
-    await signOut()
-    router.push("/login")
+    try {
+      if (authenticatedUser?.provider === 'firebase') {
+        await signOut(auth)
+        toast.success("Logged out successfully!")
+      } else {
+        await supabaseSignOut()
+      }
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast.error("Logout failed")
+    }
   }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isProfileDropdownOpen) {
+        const target = event.target as HTMLElement
+        if (!target.closest('.profile-dropdown')) {
+          setIsProfileDropdownOpen(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isProfileDropdownOpen])
 
   if (loading) {
     return (
@@ -65,9 +114,16 @@ export default function Dashboard() {
     )
   }
 
-  if (!user) {
+  if (!user && !authenticatedUser) {
     return null
   }
+
+  // Get current user info from either Firebase or Supabase
+  const currentUser = authenticatedUser || user
+  const userName = authenticatedUser?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || "User"
+  const userEmail = authenticatedUser?.email || user?.email || ""
+  const userPhoto = authenticatedUser?.photoURL || user?.user_metadata?.avatar_url
+  const userRole = user?.user_metadata?.role || "Creator"
 
   return (
     <SidebarProvider>
@@ -77,7 +133,18 @@ export default function Dashboard() {
           <SidebarHeader className="p-4 border-b border-neutral-700">
             <div className="flex items-center gap-3 w-full">
               <Calculator className="w-6 h-6 text-orange-500 flex-shrink-0" />
-              <h1 className="text-orange-500 font-bold text-base tracking-wider">{"CONNECT CREATOR"}</h1>
+              <div className="flex-1">
+                <h1 className="text-orange-500 font-bold text-base tracking-wider">{"CONNECT CREATOR"}</h1>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/")}
+                className="text-neutral-400 border-neutral-600 hover:bg-neutral-800 hover:text-orange-500 hover:border-orange-500/50 transition-all duration-200"
+                title="Back to Homepage"
+              >
+                <Home className="w-4 h-4" />
+              </Button>
             </div>
           </SidebarHeader>
           <SidebarContent className="flex-1 p-2">
@@ -162,6 +229,15 @@ export default function Dashboard() {
               <SidebarTrigger className="md:hidden p-2 hover:bg-neutral-700 rounded-lg transition-colors">
                 <Menu className="w-5 h-5 text-neutral-400" />
               </SidebarTrigger>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/")}
+                className="md:hidden text-neutral-400 border-neutral-600 hover:bg-neutral-800 hover:text-orange-500 hover:border-orange-500/50 transition-all duration-200 flex-shrink-0"
+                title="Back to Homepage"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
               <div className="text-sm text-neutral-400 overflow-hidden">
                 <span className="whitespace-nowrap">CREATOR CONNECT / </span>
                 <span className="text-orange-500 font-medium whitespace-nowrap">
@@ -172,11 +248,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Right Section */}
+            {/* Right Section - User Profile */}
             <div className="flex items-center gap-2 lg:gap-4 flex-shrink-0">
-              <div className="hidden sm:block text-xs text-neutral-500 whitespace-nowrap">
-                Welcome, <span className="text-orange-500 font-medium">{user?.user_metadata?.role || "User"}</span>
-              </div>
               <div className="hidden lg:block text-xs text-neutral-500 whitespace-nowrap">
                 LAST UPDATE: 08/06/2025 00:03 UTC
               </div>
@@ -194,14 +267,74 @@ export default function Dashboard() {
               >
                 <RefreshCw className="w-4 h-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-neutral-400 hover:text-orange-500 text-xs whitespace-nowrap px-3 py-2 flex-shrink-0"
-              >
-                LOGOUT
-              </Button>
+
+              {/* User Profile Dropdown */}
+              <div className="relative profile-dropdown">
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-700 transition-colors border border-neutral-600/50 bg-neutral-800/80 min-w-fit"
+                >
+                  {userPhoto ? (
+                    <img
+                      src={userPhoto}
+                      alt={userName}
+                      className="w-7 h-7 rounded-full border-2 border-orange-500 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {userName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-white font-medium text-sm max-w-[120px] truncate hidden sm:block">
+                    {userName}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 flex-shrink-0 ${
+                    isProfileDropdownOpen ? 'rotate-180' : ''
+                  }`} />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-neutral-900/95 backdrop-blur-sm border border-neutral-700 rounded-lg shadow-xl animate-in slide-in-from-top-2 duration-200 overflow-hidden z-50">
+                    <div className="p-4 border-b border-neutral-700">
+                      <div className="flex items-center gap-3">
+                        {userPhoto ? (
+                          <img
+                            src={userPhoto}
+                            alt={userName}
+                            className="w-12 h-12 rounded-full border-2 border-orange-500 flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                            {userName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-white font-medium text-sm truncate">{userName}</p>
+                          <p className="text-neutral-400 text-xs truncate">{userEmail}</p>
+                          <p className="text-orange-500 text-xs font-medium">{userRole}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="flex items-center gap-2 p-2 text-green-400 text-sm font-medium mb-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Online</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          handleLogout()
+                          setIsProfileDropdownOpen(false)
+                        }}
+                        className="flex items-center gap-2 w-full p-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors rounded-md text-sm font-medium"
+                      >
+                        <LogOut className="w-4 h-4 flex-shrink-0" />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

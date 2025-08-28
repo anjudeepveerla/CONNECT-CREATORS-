@@ -6,7 +6,13 @@ import { AuthProvider } from "@/lib/auth-context"
 import { Footer } from "@/components/footer"
 import { Toaster } from "sonner"
 
-const geistMono = GeistMono({ subsets: ["latin"] })
+const geistMono = GeistMono({ 
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+  display: "swap",
+  preload: true,
+  fallback: ["ui-monospace", "SFMono-Regular", "monospace"]
+})
 
 export const metadata: Metadata = {
   title: "Creator Connect - Influencer Pricing Platform",
@@ -20,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${geistMono.className} bg-black text-white antialiased min-h-screen w-full overflow-x-hidden flex flex-col`}>
+    <html lang="en" className={geistMono.variable} suppressHydrationWarning={true}>
+      <body 
+        className="font-mono bg-black text-white antialiased min-h-screen w-full overflow-x-hidden flex flex-col"
+        suppressHydrationWarning={true}
+      >
         <AuthProvider>
           <div className="flex-1 w-full">{children}</div>
           <Footer />

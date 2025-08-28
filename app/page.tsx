@@ -20,7 +20,6 @@ import {
   ArrowRight,
   User,
   LogOut,
-  ChevronDown,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { signInWithPopup, signOut } from "firebase/auth"
@@ -37,9 +36,8 @@ export default function HomePage() {
     revenue: 0,
     success: 0,
   })
-  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null)
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [authenticatedUser, setAuthenticatedUser] = useState<any>(null)
   const router = useRouter()
   const { user, loading } = useAuth()
 
@@ -56,16 +54,10 @@ export default function HomePage() {
           origin: { y: 0.6 }
         })
         
-        // Store authenticated user - stay on homepage
-        setAuthenticatedUser({
-          name: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          uid: user.uid
-        })
-        
         toast.success("Google Sign-in successful!")
-        // Don't redirect to dashboard, stay on homepage
+        
+        // Immediate redirect to dashboard
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Google Sign-in error:", error)
@@ -81,17 +73,7 @@ export default function HomePage() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth)
-      setAuthenticatedUser(null)
-      setIsProfileDropdownOpen(false)
-      toast.success("Logged out successfully!")
-    } catch (error) {
-      console.error("Logout error:", error)
-      toast.error("Logout failed")
-    }
-  }
+
 
   // Define testimonials array before useEffect hooks
   const testimonials = [
@@ -139,28 +121,14 @@ export default function HomePage() {
     },
   ]
 
-  // Don't redirect authenticated users, let them stay on homepage
-  // useEffect(() => {
-  //   if (!loading && user) {
-  //     router.push("/dashboard")
-  //   }
-  // }, [user, loading, router])
-
-  // Listen for Firebase auth state changes
+  // Set up Firebase auth state listener and hydration - ALL HOOKS MUST BE AT THE TOP
   useEffect(() => {
     setIsHydrated(true)
     
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setAuthenticatedUser({
-          name: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          uid: user.uid
-        })
-      } else {
-        setAuthenticatedUser(null)
-      }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setAuthenticatedUser(firebaseUser)
+      // Just track auth state, don't redirect automatically
+      // Let users navigate freely between pages
     })
 
     return () => unsubscribe()
@@ -200,22 +168,8 @@ export default function HomePage() {
     return () => clearInterval(timer)
   }, [testimonials.length])
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isProfileDropdownOpen) {
-        const target = event.target as HTMLElement
-        if (!target.closest('.profile-dropdown')) {
-          setIsProfileDropdownOpen(false)
-        }
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isProfileDropdownOpen])
+  // Check authentication state AFTER all hooks
+  const isAuthenticated = user || authenticatedUser
 
   // Show loading while checking authentication or before hydration
   if (loading || !isHydrated) {
@@ -228,11 +182,6 @@ export default function HomePage() {
       </div>
     )
   }
-
-  // Allow both authenticated and non-authenticated users to see the homepage
-  // if (user) {
-  //   return null
-  // }
 
   const features = [
     {
@@ -293,81 +242,7 @@ export default function HomePage() {
   ]
 
   return (
-    <div className={`min-h-screen bg-black overflow-hidden ${authenticatedUser ? 'pt-16' : ''}`}>
-      {/* Navigation Header - Show when authenticated */}
-      {authenticatedUser && (
-        <>
-          {/* Main Navigation Bar */}
-          <div className="fixed top-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-sm border-b border-neutral-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center h-16">
-                {/* Logo */}
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                    <Calculator className="w-5 h-5 text-white" />
-                  </div>
-                  <h1 className="text-xl font-bold text-orange-500 tracking-wider">
-                    CREATOR CONNECT
-                  </h1>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* User Profile - Positioned in absolute top-right */}
-          <div className="fixed top-4 right-4 z-[60] profile-dropdown">
-            <div className="relative">
-              <button 
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-800/80 backdrop-blur-sm transition-colors border border-neutral-700/50 bg-neutral-900/90 min-w-fit"
-              >
-                <img
-                  src={authenticatedUser.photoURL || '/default-avatar.png'}
-                  alt={authenticatedUser.name}
-                  className="w-8 h-8 rounded-full border-2 border-orange-500 flex-shrink-0"
-                />
-                <span className="text-white font-medium text-sm max-w-[120px] truncate hidden sm:block">
-                  {authenticatedUser.name}
-                </span>
-                <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 flex-shrink-0 ${
-                  isProfileDropdownOpen ? 'rotate-180' : ''
-                }`} />
-              </button>
-              
-              {/* Dropdown Menu */}
-              {isProfileDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-neutral-900/95 backdrop-blur-sm border border-neutral-700 rounded-lg shadow-xl animate-in slide-in-from-top-2 duration-200 overflow-hidden">
-                  <div className="p-4 border-b border-neutral-700">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={authenticatedUser.photoURL || '/default-avatar.png'}
-                        alt={authenticatedUser.name}
-                        className="w-10 h-10 rounded-full border-2 border-orange-500 flex-shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-white font-medium text-sm truncate">{authenticatedUser.name}</p>
-                        <p className="text-neutral-400 text-xs truncate">{authenticatedUser.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-2">
-                    <button
-                      onClick={() => {
-                        handleLogout()
-                        setIsProfileDropdownOpen(false)
-                      }}
-                      className="flex items-center gap-2 w-full p-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors rounded-md text-sm font-medium"
-                    >
-                      <LogOut className="w-4 h-4 flex-shrink-0" />
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+    <div className="min-h-screen bg-black overflow-hidden">
 
       {/* Animated Background - Only Orange/Neutral */}
       <div className="fixed inset-0 z-0">
@@ -382,7 +257,7 @@ export default function HomePage() {
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Left Side - Enhanced Application Showcase */}
-        <div className={`${authenticatedUser ? 'w-full' : 'w-full lg:w-3/5'} flex flex-col relative p-4 sm:p-8 lg:p-12`}>
+        <div className="w-full lg:w-3/5 flex flex-col relative p-4 sm:p-8 lg:p-12">
           {/* Hero Section */}
           <div className="flex-1 flex flex-col justify-center">
             {/* Main Header */}
@@ -586,8 +461,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-        {/* Right Side - Call to Action - Only show when NOT authenticated */}
-        {!authenticatedUser && (
+        {/* Right Side - Call to Action - Always show for non-authenticated users */}
           <div className="w-full lg:w-2/5 flex items-center justify-center p-4 sm:p-8 relative">
             <div className="w-full max-w-sm sm:max-w-md space-y-6 sm:space-y-8">
               {/* Mobile Header */}
@@ -603,94 +477,172 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Call to Action Card */}
+              {/* Call to Action Card - Conditional based on authentication */}
               <div className="relative group">
-                <div className="absolute inset-0 bg-orange-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <Card className="relative bg-neutral-900/90 backdrop-blur-xl border border-neutral-700/50 rounded-3xl shadow-2xl p-4 sm:p-6">
-                  <CardHeader className="text-center pb-4 sm:pb-6">
-                    <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                      <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
-                      <CardTitle className="text-xl sm:text-2xl font-bold text-white tracking-wider">
-                        GET STARTED
-                      </CardTitle>
-                    </div>
-                    <p className="text-sm sm:text-base text-neutral-400">Join thousands of creators and brands</p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="text-center space-y-4">
-                      <p className="text-neutral-300 text-sm">
-                        Ready to revolutionize your influencer collaborations? Create an account and start optimizing your pricing strategy today.
-                      </p>
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm text-neutral-400">
-                          <CheckCircle className="w-4 h-4 text-orange-500" />
-                          <span>AI-powered pricing insights</span>
+                <div className={`absolute inset-0 rounded-3xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
+                  isAuthenticated ? 'bg-green-500/20' : 'bg-orange-500/20'
+                }`}></div>
+                <Card className={`relative bg-neutral-900/90 backdrop-blur-xl border rounded-3xl shadow-2xl p-4 sm:p-6 ${
+                  isAuthenticated ? 'border-green-500/30' : 'border-neutral-700/50'
+                }`}>
+                  {!isAuthenticated ? (
+                    // GET STARTED for non-authenticated users
+                    <>
+                      <CardHeader className="text-center pb-4 sm:pb-6">
+                        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                          <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+                          <CardTitle className="text-xl sm:text-2xl font-bold text-white tracking-wider">
+                            GET STARTED
+                          </CardTitle>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-neutral-400">
-                          <CheckCircle className="w-4 h-4 text-orange-500" />
-                          <span>Real-time market data</span>
+                        <p className="text-sm sm:text-base text-neutral-400">Join thousands of creators and brands</p>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="text-center space-y-4">
+                          <p className="text-neutral-300 text-sm">
+                            Ready to revolutionize your influencer collaborations? Create an account and start optimizing your pricing strategy today.
+                          </p>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm text-neutral-400">
+                              <CheckCircle className="w-4 h-4 text-orange-500" />
+                              <span>AI-powered pricing insights</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-neutral-400">
+                              <CheckCircle className="w-4 h-4 text-orange-500" />
+                              <span>Real-time market data</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-neutral-400">
+                              <CheckCircle className="w-4 h-4 text-orange-500" />
+                              <span>Professional analytics</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-neutral-400">
-                          <CheckCircle className="w-4 h-4 text-orange-500" />
-                          <span>Professional analytics</span>
+                        
+                        <Button
+                          onClick={() => router.push("/login")}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold tracking-wider h-14 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <User className="w-5 h-5" />
+                            CREATE ACCOUNT
+                            <ArrowRight className="w-5 h-5" />
+                          </div>
+                        </Button>
+                        
+                        <div className="text-center">
+                          <p className="text-xs text-neutral-500 mb-2">Already have an account?</p>
+                          <Button
+                            variant="outline"
+                            onClick={() => router.push("/login")}
+                            className="text-orange-500 border-orange-500/30 hover:bg-orange-500/10 mb-4"
+                          >
+                            Sign In
+                          </Button>
+                          
+                          {/* Google Sign-in Button */}
+                          <div className="relative mb-4">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-neutral-600/50"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                              <span className="bg-neutral-900/90 px-2 text-neutral-500">Or continue with</span>
+                            </div>
+                          </div>
+                          
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleGoogleSignIn}
+                            className="w-full bg-white/5 hover:bg-white/10 text-white border-neutral-600/50 hover:border-white/50 font-semibold tracking-wider h-12 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                              </svg>
+                              SIGN IN WITH GOOGLE
+                            </div>
+                          </Button>
                         </div>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      onClick={() => router.push("/login")}
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold tracking-wider h-14 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <User className="w-5 h-5" />
-                        CREATE ACCOUNT
-                        <ArrowRight className="w-5 h-5" />
-                      </div>
-                    </Button>
-                    
-                    <div className="text-center">
-                      <p className="text-xs text-neutral-500 mb-2">Already have an account?</p>
-                      <Button
-                        variant="outline"
-                        onClick={() => router.push("/login")}
-                        className="text-orange-500 border-orange-500/30 hover:bg-orange-500/10 mb-4"
-                      >
-                        Sign In
-                      </Button>
-                      
-                      {/* Google Sign-in Button */}
-                      <div className="relative mb-4">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-neutral-600/50"></div>
+                      </CardContent>
+                    </>
+                  ) : (
+                    // USER PROFILE for authenticated users
+                    <>
+                      <CardHeader className="text-center pb-4 sm:pb-6">
+                        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                          <div className="relative">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75"></div>
+                          </div>
+                          <CardTitle className="text-xl sm:text-2xl font-bold text-white tracking-wider">
+                            WELCOME BACK!
+                          </CardTitle>
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-neutral-900/90 px-2 text-neutral-500">Or continue with</span>
+                        <div className="text-center">
+                          {(authenticatedUser?.photoURL || user?.user_metadata?.avatar_url) && (
+                            <img 
+                              src={authenticatedUser?.photoURL || user?.user_metadata?.avatar_url} 
+                              alt="Profile" 
+                              className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-green-500/50"
+                            />
+                          )}
+                          <h3 className="text-lg font-semibold text-white mb-1">
+                            {authenticatedUser?.displayName || user?.user_metadata?.name || user?.email?.split('@')[0] || "User"}
+                          </h3>
+                          <p className="text-green-400 text-sm mb-2">
+                            {authenticatedUser?.email || user?.email}
+                          </p>
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            ● Online
+                          </Badge>
                         </div>
-                      </div>
-                      
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleGoogleSignIn}
-                        className="w-full bg-white/5 hover:bg-white/10 text-white border-neutral-600/50 hover:border-white/50 font-semibold tracking-wider h-12 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-200"
-                      >
-                        <div className="flex items-center gap-3">
-                          <svg className="w-5 h-5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                          </svg>
-                          SIGN IN WITH GOOGLE
-                        </div>
-                      </Button>
-                    </div>
-                  </CardContent>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <Button
+                          onClick={() => router.push("/dashboard")}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold tracking-wider h-14 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Calculator className="w-5 h-5" />
+                            GO TO DASHBOARD
+                            <ArrowRight className="w-5 h-5" />
+                          </div>
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              if (authenticatedUser) {
+                                await signOut(auth)
+                              } else if (user) {
+                                const { signOut: supabaseSignOut } = useAuth()
+                                await supabaseSignOut()
+                              }
+                              toast.success("Logged out successfully!")
+                              setAuthenticatedUser(null)
+                            } catch (error) {
+                              console.error("Logout error:", error)
+                              toast.error("Logout failed")
+                            }
+                          }}
+                          className="w-full text-red-400 border-red-500/30 hover:bg-red-500/10 font-semibold tracking-wider h-12 rounded-xl"
+                        >
+                          <div className="flex items-center gap-3">
+                            <LogOut className="w-5 h-5" />
+                            LOGOUT
+                          </div>
+                        </Button>
+                      </CardContent>
+                    </>
+                  )}
                 </Card>
               </div>
             </div>
           </div>
-        )}
       </div>
       {/* Quick Footer Links */}
       <div className="border-t border-neutral-800 mt-16 pt-8">
